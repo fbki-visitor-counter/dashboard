@@ -1,4 +1,6 @@
+uvicorn
 fastapi
 fastapi-mqtt
 bcrypt
 sqlalchemy
+pyjwt
