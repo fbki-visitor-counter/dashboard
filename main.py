@@ -11,9 +11,13 @@ from dataclasses import dataclass
 from sqlalchemy import func
 import sqlalchemy
 
+from datetime import datetime, timedelta
+
 import bcrypt
 import jwt
-from datetime import datetime, timedelta
+
+from contextlib import contextmanager
+from asyncio import sleep
 
 import json
 import ssl
@@ -62,6 +66,48 @@ def decode_access_token(token: str):
 		return None
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+#######################################################################################
+# RAW DATA MESSAGE DISTRIBUTION
+#######################################################################################
+
+"""
+rawdatas = []
+
+async def raw_data_generator(device_id):
+	#rawdata_subs.append({
+	#	"device_id": device_id,
+	#	"pending": None
+	#})
+	while True:
+		yield f"data: {rawdatas}\n\n"
+		await sleep(1)
+"""
+
+rawdata_subs = []
+
+async def get_stuff(device_id):
+	try:
+		sub = {
+			"device_id": device_id,
+			"pending": None
+		}
+
+		rawdata_subs.append(sub)
+
+		async def inner_gen():
+			while True:
+				if sub["pending"] is not None:
+					yield f"data: {sub['pending']}\n\n"
+					sub["pending"] = None
+				await sleep(1)
+
+		print("III", device_id)
+		yield inner_gen
+	finally:
+		rawdata_subs.remove(sub)
+		print("OOO")
+
 
 #######################################################################################
 # DB
@@ -359,7 +405,19 @@ def device_remove(device_id: str, current_user: User = Depends(get_current_user)
 	db.commit()
 
 	return {"status": "ok"}
-	
+
+@app.get("/devices/{device_id}/rawdata")
+def device_rawdata(device_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db), test=Depends(get_stuff)):
+	device = get_device_by_device_id(db, device_id)
+
+	if device is None:
+		raise HTTPException(400, "Device not found")
+
+	if device.user != current_user:
+		raise HTTPException(401, "Access denied")
+
+	#return StreamingResponse(raw_data_generator(device.device_id), media_type="text/event-stream")
+	return StreamingResponse(test(), media_type="text/event-stream")
 
 #######################################################################################
 # MQTT
@@ -399,5 +457,18 @@ async def handle_visitors4_data(client, topic, payload, qos, properties, db: Ses
 
 	db.commit()
 	db.close()
+
+@fast_mqtt.subscribe("axkuhta/+/rawdata")
+async def handle_visitors4_data(client, topic, payload, qos, properties, db: Session = SessionLocal()):
+	device_id = topic.split("/")[-2]
+
+	for sub in rawdata_subs:
+		if sub["device_id"] == device_id:
+			if sub["pending"] is None:
+				sub["pending"] = str(payload)
+			else:
+				print("Overrun")
+
+	print("rawdata", device_id)
 
 # uvicorn main:app --reload --timeout-keep-alive 30
