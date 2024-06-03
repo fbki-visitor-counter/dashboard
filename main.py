@@ -17,7 +17,7 @@ import bcrypt
 import jwt
 
 from contextlib import contextmanager
-from asyncio import sleep
+from asyncio import Queue
 
 import json
 import ssl
@@ -71,41 +71,25 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 # RAW DATA MESSAGE DISTRIBUTION
 #######################################################################################
 
-"""
-rawdatas = []
-
-async def raw_data_generator(device_id):
-	#rawdata_subs.append({
-	#	"device_id": device_id,
-	#	"pending": None
-	#})
-	while True:
-		yield f"data: {rawdatas}\n\n"
-		await sleep(1)
-"""
-
-rawdata_subs = []
+rawdata_subs_queue = Queue()
 
 async def get_stuff(device_id):
 	try:
 		sub = {
 			"device_id": device_id,
-			"pending": None
+			"pending": Queue(maxsize=10)
 		}
 
-		rawdata_subs.append(sub)
+		rawdata_subs_queue.put_nowait(sub)
 
 		async def inner_gen():
 			while True:
-				if sub["pending"] is not None:
-					yield f"data: {sub['pending']}\n\n"
-					sub["pending"] = None
-				await sleep(1)
+				message = await sub["pending"].get()
+				yield f"data: {message}\n\n"
 
 		print("III", device_id)
 		yield inner_gen
 	finally:
-		rawdata_subs.remove(sub)
 		print("OOO")
 
 
@@ -462,12 +446,21 @@ async def handle_visitors4_data(client, topic, payload, qos, properties, db: Ses
 async def handle_visitors4_data(client, topic, payload, qos, properties, db: Session = SessionLocal()):
 	device_id = topic.split("/")[-2]
 
-	for sub in rawdata_subs:
-		if sub["device_id"] == device_id:
-			if sub["pending"] is None:
-				sub["pending"] = str(payload)
-			else:
-				print("Overrun")
+	add_back_list = []
+
+	while not rawdata_subs_queue.empty():
+		sub = rawdata_subs_queue.get_nowait()
+
+		if not sub["pending"].full():
+			add_back_list.append(sub)
+
+			if sub["device_id"] == device_id:
+				sub["pending"].put_nowait(str(payload))
+		else:
+			print("Dropping a sub")
+
+	for sub in add_back_list:
+		rawdata_subs_queue.put_nowait(sub)
 
 	print("rawdata", device_id)
 
