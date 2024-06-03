@@ -22,6 +22,9 @@ from asyncio import Queue
 import json
 import ssl
 
+import struct
+import zlib
+
 app = FastAPI()
 
 mqtt_config = MQTTConfig(
@@ -73,7 +76,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 rawdata_subs_queue = Queue()
 
-async def get_stuff(device_id):
+async def stream_raw_data(device_id):
 	try:
 		sub = {
 			"device_id": device_id,
@@ -87,10 +90,11 @@ async def get_stuff(device_id):
 				message = await sub["pending"].get()
 				yield f"data: {message}\n\n"
 
-		print("III", device_id)
 		yield inner_gen
 	finally:
-		print("OOO")
+		# This block runs when client disconnects, but there's nothing for us to do here...
+		# except possibly flood the pending queue intentionally for a faster cleanup?
+		pass
 
 
 #######################################################################################
@@ -391,7 +395,7 @@ def device_remove(device_id: str, current_user: User = Depends(get_current_user)
 	return {"status": "ok"}
 
 @app.get("/devices/{device_id}/rawdata")
-def device_rawdata(device_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db), test=Depends(get_stuff)):
+def device_rawdata(device_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db), gen=Depends(stream_raw_data)):
 	device = get_device_by_device_id(db, device_id)
 
 	if device is None:
@@ -400,8 +404,7 @@ def device_rawdata(device_id: str, current_user: User = Depends(get_current_user
 	if device.user != current_user:
 		raise HTTPException(401, "Access denied")
 
-	#return StreamingResponse(raw_data_generator(device.device_id), media_type="text/event-stream")
-	return StreamingResponse(test(), media_type="text/event-stream")
+	return StreamingResponse(gen(), media_type="text/event-stream")
 
 #######################################################################################
 # MQTT
@@ -442,26 +445,47 @@ async def handle_visitors4_data(client, topic, payload, qos, properties, db: Ses
 	db.commit()
 	db.close()
 
+def decode_rawdata(payload):
+	decoded = zlib.decompress(payload)
+
+	assert len(decoded) % 32 == 0
+	frames = len(decoded) // 32
+
+	result = ""
+
+	for i in range(frames):
+		frame = decoded[32*i:32*i+32]
+		x1, y1, v1, r1, x2, y2, v2, r2, x3, y3, v3, r3, t = struct.unpack("hhhhhhhhhhhhd", frame)
+		result += ",".join(map(str, [t, x1, y1, v1, r1, x2, y2, v2, r2, x3, y3, v3, r3])) + "\n"
+
+	return result
+
+
 @fast_mqtt.subscribe("axkuhta/+/rawdata")
-async def handle_visitors4_data(client, topic, payload, qos, properties, db: Session = SessionLocal()):
-	device_id = topic.split("/")[-2]
+async def handle_rawdata(client, topic, payload, qos, properties, db: Session = SessionLocal()):
+	try:
+		device_id = topic.split("/")[-2]
+		csv_data = decode_rawdata(payload)		
 
-	add_back_list = []
+		stopper = {}
 
-	while not rawdata_subs_queue.empty():
-		sub = rawdata_subs_queue.get_nowait()
+		rawdata_subs_queue.put_nowait(stopper)
 
-		if not sub["pending"].full():
-			add_back_list.append(sub)
+		while True:
+			sub = rawdata_subs_queue.get_nowait()
 
-			if sub["device_id"] == device_id:
-				sub["pending"].put_nowait(str(payload))
-		else:
-			print("Dropping a sub")
+			if sub == stopper:
+				break
 
-	for sub in add_back_list:
-		rawdata_subs_queue.put_nowait(sub)
+			if not sub["pending"].full():
+				if sub["device_id"] == device_id:
+					sub["pending"].put_nowait(csv_data)
 
-	print("rawdata", device_id)
+				rawdata_subs_queue.put_nowait(sub)
+			else:
+				print("Dropping a sub")
+
+	except Exception as e:
+		print(f"Invalid raw data on topic {topic} {e}")
 
 # uvicorn main:app --reload --timeout-keep-alive 30
