@@ -11,10 +11,28 @@ body {
 
 input, button, select {
 	font-size: inherit;
+    height: 40px;
+    width: 40%;
+    border-radius: 10px;
+    border-width: 1px;
+    border-color: #CCCCCC;
 }
-
+input:focus {
+    border-color: #F0F0F0;
+    border: 2px solid black;
+}
+input:hover {
+    border: 1px solid black;
+}
 select {
 	vertical-align: middle;
+    margin-left: 50px;
+}
+button {
+    width: 270px;
+}
+button:hover {
+    border: 1px solid black;
 }
 
 header {
@@ -77,6 +95,9 @@ img {
 	cursor: pointer;
 }
 
+.sign_up {
+    height: 100px;
+}
 .device-list-entry:hover .device-icon {
 	background-color: #F0F0F0;
 }
@@ -99,4 +120,14 @@ img {
 .big_warning {
 	font-size: 70px;
 	padding: 0 1rem;
+}
+
+.logn {
+    border-radius: 50px;
+    background-color: #F6F6F6;
+    height: 400px;
+}
+.logn1 {
+    position: relative;
+    left: 30%;
 }
