@@ -18,20 +18,28 @@
 	</header>
 	<main>
 		<div class="content">
+<!-- страница входа-->
 			<div class="front_page hide">
 				<h2>Welcome!</h2>
 				<p>This is the control panel for ESP32-LD2450 visitor counters. Looking to buy one? Check out <a href="">our store.</a> Already have one? Please sign in or create an account below!</p>
+                
 				<img src="static/box_new.svg">
-				<h2>Log in</h2>
-				<form action="/login" method="post" onsubmit="return handle_sign_in(this), false">
-					<input type="text" name="username" placeholder="Username...">
-					<input type="password" name="password" placeholder="Password...">
-					<input type="submit" value="Sign in">
+                <div class="logn">
+                    <div class="logn1">
+				   <h2>Log in</h2>
+             	   <form action="/login" method="post" onsubmit="return handle_sign_in(this), false">
+                    
+					<p><input type="text" name="username" placeholder="Username..."></p>
+					<p><input type="password" name="password" placeholder="Password..."></p>
+					<p><input type="submit" value="Sign in"></p>
 					<p><output name="status"></output></p>
-				</form>
-				<p>Or <a href="/sign_up" onclick="return show_sign_up_page(), false">create an account...</a></p>
+            		</form>
+					<p>Or <a href="/sign_up" onclick="return show_sign_up_page(), false">create an account...</a></p>
+                    </div>
+                </div>
 			</div>
 
+<!-- страница регистрации-->
 			<div class="sign_up hide">
 				<h2>Create an account</h2>
 				<p>Please fill out the form below. <a href="/" onclick="return show_front_page(), false">Back...</a></p>
@@ -48,6 +56,7 @@
 				<p>Please sign into your new account on <a href="/" onclick="return show_front_page(), false">the main page!</a></p>
 			</div>
 
+<!-- список устройств-->
 			<div class="account hide">
 				<h2>Welcome</h2>
 				<p>Logged in as <b class="username"></b></p>
@@ -89,6 +98,7 @@
 				</div>
 			</div>
 
+<!-- добавить устройство-->
 			<div class="add_device hide">
 				<h2>Add a new device</h2>
 				<p>Please ensure the device has been set up and is connected to a network. If you haven't gone through the <a href="">first power-up and initial configuration steps,</a> please do so now. <a href="/" onclick="return fetch_user_account(), false">Back...</a></p>
@@ -155,6 +165,7 @@
 				<button onclick="show_device_remove_page()">Remove device</button>
 			</div>
 
+<!-- удалить устройство-->
 			<div class="device_remove hide">
 				<h3>Remove device</h3>
 				<p><a href="/" onclick="return show_device_page(app.device_page_state.device_id), false">Back...</a></p>
@@ -171,7 +182,6 @@
 			</div>
 		</div>
 	</main>
-
 	<script>
 		app_init()
 	</script>
