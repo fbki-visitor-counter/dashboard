@@ -67,7 +67,9 @@
 				<table>
 					<tr>
 						<td class="w-max"><h2>List of devices</h2></td>
-						<td><button onclick="show_add_device_page()">Add a new device...</button></td>
+						<td><p><button onclick="show_add_device_page()">
+                            <img class="pc" src="static/add_24dp.svg" width="20" height="20" alt="plus">Add a new device...</button>
+                        </td>
 					</tr>
 				</table>
 				<div class="device-list">
@@ -105,7 +107,7 @@
 				<form action="/add_device" method="post" onsubmit="return request_device_claim(this), false">
 					<input type="text" name="device_id" placeholder="Device ID..." required>
 					<input type="text" name="userlabel" placeholder="Label..." required>
-					<input type="submit" value="Confirm">
+					<p><input type="submit" value="Confirm">
 					<p><output name="status"></output></p>
 				</form>
 			</div>
