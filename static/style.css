@@ -12,7 +12,7 @@ body {
 input, button, select {
 	font-size: inherit;
     height: 40px;
-    width: 40%;
+    width: 100%;
     border-radius: 10px;
     border-width: 1px;
     border-color: #CCCCCC;
@@ -127,9 +127,9 @@ img {
 .logn {
     border-radius: 50px;
     background-color: #F6F6F6;
-    height: 400px;
+	padding: 2rem;
 }
 .logn1 {
-    position: relative;
-    left: 30%;
+    margin: 0 auto;
+    width: 50%;
 }
